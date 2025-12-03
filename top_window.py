@@ -28,7 +28,7 @@ MENU_OPTIONS = {
 
 def display_menu():
     """Display the main menu options"""
-    print(f"\n{Colors.HEADER}{Colors.BOLD}=== TapWindow Menu ==={Colors.ENDC}")
+    print(f"\n{Colors.HEADER}{Colors.BOLD}=== TopWindow Menu ==={Colors.ENDC}")
     for key, value in MENU_OPTIONS.items():
         if key == '1':
             print(f"{Colors.OKGREEN}{key}. {value}{Colors.ENDC}")
@@ -51,7 +51,7 @@ def list_windows():
     count = 1
     for window in windows:
         # Only show windows with titles that are not empty and not the current console
-        if window.title.strip() and not window.title.startswith("TapWindow"):
+        if window.title.strip() and not window.title.startswith("TopWindow"):
             status = f"{Colors.WARNING}[ON TOP]{Colors.ENDC}" if window._hWnd in topmost_windows else ""
             print(f"{Colors.OKGREEN}{count}.{Colors.ENDC} {window.title} {status}")
             valid_windows.append(window)
@@ -171,7 +171,7 @@ def restore_all_windows():
 
 def main():
     """Main application loop"""
-    print(f"{Colors.OKBLUE}{Colors.BOLD}TapWindow - Keep Any Window On Top{Colors.ENDC}")
+    print(f"{Colors.OKBLUE}{Colors.BOLD}TopWindow - Keep Any Window On Top{Colors.ENDC}")
     print(f"{Colors.OKCYAN}{'=' * 40}{Colors.ENDC}")
     
     try:
