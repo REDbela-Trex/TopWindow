@@ -3,6 +3,8 @@ import time
 import sys
 import win32gui
 import win32con
+import json
+import os
 
 # ANSI color codes for terminal coloring
 class Colors:
@@ -19,12 +21,34 @@ class Colors:
 # Store references to windows that are kept on top
 topmost_windows = {}
 
+# JSON file for persisting window data
+WINDOW_DATA_FILE = "top_window_data.json"
+
 MENU_OPTIONS = {
     '1': 'Keep window(s) on top',
     '2': 'Restore window(s) from top',
-    '3': 'List currently topmost windows',
+    '3': 'Launch GUI version',
     '4': 'Exit program'
 }
+
+def load_window_data():
+    """Load previously selected windows from JSON file"""
+    try:
+        if os.path.exists(WINDOW_DATA_FILE):
+            with open(WINDOW_DATA_FILE, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"Error loading window data: {e}")
+    return {"previous_windows": []}
+
+def save_window_data(window_titles):
+    """Save selected window titles to JSON file"""
+    try:
+        data = {"previous_windows": window_titles}
+        with open(WINDOW_DATA_FILE, 'w') as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        print(f"Error saving window data: {e}")
 
 def display_menu():
     """Display the main menu options"""
@@ -117,14 +141,18 @@ def keep_selected_windows_on_top(windows):
         return
         
     success_count = 0
+    selected_titles = []
     for window in windows:
         if set_window_always_on_top(window):
             print(f"{Colors.OKGREEN}Window '{window.title}' is now on top.{Colors.ENDC}")
+            selected_titles.append(window.title)
             success_count += 1
         else:
             print(f"{Colors.FAIL}Failed to set window '{window.title}' on top.{Colors.ENDC}")
     
     if success_count > 0:
+        # Save the selected window titles for persistence
+        save_window_data(selected_titles)
         print(f"\n{Colors.OKGREEN}Successfully set {success_count} window(s) on top.{Colors.ENDC}")
     else:
         print(f"\n{Colors.FAIL}No windows were successfully set on top.{Colors.ENDC}")
@@ -148,16 +176,41 @@ def restore_selected_windows(windows):
     else:
         print(f"\n{Colors.FAIL}No windows were successfully restored.{Colors.ENDC}")
 
-def list_topmost_windows():
-    """List currently topmost windows"""
-    if not topmost_windows:
-        print(f"\n{Colors.WARNING}No windows are currently kept on top.{Colors.ENDC}")
-        return
+def launch_gui_version():
+    """Launch the GUI version of the application"""
+    print(f"\n{Colors.OKBLUE}Launching GUI version...{Colors.ENDC}")
+    try:
+        restore_all_windows()  # Clean up before switching to GUI
         
-    print(f"\n{Colors.OKBLUE}{Colors.BOLD}Currently Topmost Windows:{Colors.ENDC}")
-    print(f"{Colors.OKCYAN}{'-' * 30}{Colors.ENDC}")
-    for i, (hwnd, window) in enumerate(topmost_windows.items(), 1):
-        print(f"{Colors.OKGREEN}{i}.{Colors.ENDC} {window.title}")
+        # Launch GUI as a detached process that survives terminal closure
+        import subprocess
+        import sys
+        import os
+        
+        # Check if we're running as a bundled executable
+        if getattr(sys, 'frozen', False):
+            # Running as compiled executable
+            # Launch the GUI by running the same executable with a --gui flag
+            subprocess.Popen(
+                [sys.executable, '--gui'],
+                creationflags=subprocess.DETACHED_PROCESS,
+                close_fds=True
+            )
+        else:
+            # Running as script
+            # Get the path to the GUI script
+            gui_script = os.path.join(os.path.dirname(__file__), 'gui', 'modern_ui.py')
+            # Launch the GUI script
+            subprocess.Popen(
+                [sys.executable, gui_script],
+                creationflags=subprocess.DETACHED_PROCESS,
+                close_fds=True
+            )
+        
+        # Exit the current process (closes terminal)
+        sys.exit(0)
+    except Exception as e:
+        print(f"{Colors.FAIL}Error launching GUI version: {e}{Colors.ENDC}")
 
 def restore_all_windows():
     """Restore all windows when exiting"""
@@ -206,8 +259,9 @@ def main():
                 restore_selected_windows(selected_windows)
                 
             elif choice == '3':
-                # List currently topmost windows
-                list_topmost_windows()
+                # Launch GUI version
+                launch_gui_version()
+                break
                 
             elif choice == '4':
                 # Exit program
@@ -227,4 +281,15 @@ def main():
         restore_all_windows()
 
 if __name__ == "__main__":
-    main()
+    # Check if we should launch the GUI directly
+    if len(sys.argv) > 1 and sys.argv[1] == '--gui':
+        # Launch GUI directly
+        try:
+            from gui import modern_ui
+            app = modern_ui.TopWindowApp()
+            app.run()
+        except Exception as e:
+            print(f"Error launching GUI: {e}")
+    else:
+        # Launch CLI version
+        main()

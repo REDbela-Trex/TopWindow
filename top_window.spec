@@ -1,12 +1,17 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-
 a = Analysis(
-    ['tap_window.py'],
+    ['top_window.py'],
     pathex=[],
     binaries=[],
-    datas=[],
-    hiddenimports=[],
+    datas=[
+        ('gui/*.py', 'gui'),
+        ('gui/*.png', 'gui'),
+        ('gui/*.ico', 'gui'),
+        ('*.ico', '.'),
+        ('*.png', '.')
+    ],
+    hiddenimports=['gui.window_manager', 'gui.modern_ui'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -14,6 +19,7 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+
 pyz = PYZ(a.pure)
 
 exe = EXE(
@@ -22,7 +28,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='tap_window',
+    name='TopWindow',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -35,5 +41,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['tap_window_icon.ico'],
+    icon=['top_window_icon.ico'],
 )
