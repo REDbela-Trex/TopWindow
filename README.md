@@ -6,10 +6,11 @@ TopWindow is a lightweight Python utility that allows users to keep any applicat
 
 - Keep any window on top of all other applications
 - Restore windows to their normal behavior
-- List all currently topmost windows
+- Launch GUI version with modern interface
 - Simple command-line interface
 - Support for selecting multiple windows at once
 - Automatic cleanup of window states on exit
+- Persistent storage of previously selected windows
 
 ## Requirements
 
@@ -18,13 +19,14 @@ TopWindow is a lightweight Python utility that allows users to keep any applicat
 - Required Python packages:
   - `pygetwindow`
   - `pywin32`
+  - `Pillow` (for GUI version)
 
 ## Installation
 
 1. Clone or download this repository
 2. Install the required dependencies:
    ```
-   pip install pygetwindow pywin32
+   pip install pygetwindow pywin32 Pillow
    ```
 
 ## Usage
@@ -38,7 +40,7 @@ python top_window.py
 
 1. **Keep window(s) on top**: Select one or more windows to keep on top of all other windows
 2. **Restore window(s) from top**: Return selected windows to normal behavior
-3. **List currently topmost windows**: Display all windows currently set to stay on top
+3. **Launch GUI version**: Open the modern graphical user interface
 4. **Exit program**: Close the application and restore all windows to normal behavior
 
 ### Selecting Windows
@@ -53,6 +55,19 @@ When choosing windows, you can:
 TopWindow uses the Windows API through the `pywin32` library to modify window positioning properties. When a window is set to "always on top," the application sets the window's position to `HWND_TOPMOST`, which instructs Windows to keep that window above all others.
 
 On exit or when restoring windows, the application sets the window position to `HWND_NOTOPMOST`, returning it to normal stacking behavior.
+
+Selected window titles are stored in a JSON file for persistence between sessions.
+
+## GUI Version
+
+The GUI version provides a modern, intuitive interface with the following features:
+- Visual representation of windows with icons
+- Single-click to toggle windows on top
+- Right-click to minimize windows
+- System tray integration
+- Drag and drop positioning
+- Automatic edge snapping
+- Window persistence between sessions
 
 ## Building Executable
 
