@@ -20,13 +20,14 @@ TopWindow is a lightweight Python utility that allows users to keep any applicat
   - `pygetwindow`
   - `pywin32`
   - `Pillow` (for GUI version)
+  - `pystray` (for system tray integration)
 
 ## Installation
 
 1. Clone or download this repository
 2. Install the required dependencies:
    ```
-   pip install pygetwindow pywin32 Pillow
+   pip install pygetwindow pywin32 Pillow pystray
    ```
 
 ## Usage
