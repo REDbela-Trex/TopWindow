@@ -11,7 +11,7 @@ a = Analysis(
         ('*.ico', '.'),
         ('*.png', '.')
     ],
-    hiddenimports=['gui.window_manager', 'gui.modern_ui'],
+    hiddenimports=['gui.window_manager', 'gui.modern_ui', 'win32api', 'win32con', 'win32gui'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

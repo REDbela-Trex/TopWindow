@@ -458,57 +458,6 @@ class TopWindowApp:
         self._is_dragging = False
         # Use animated snapping when drag stops
         self.root.after(10, self._snap_to_nearest_edge_animated)
-        
-    def _animate_snap(self, from_x, from_y, to_x, to_y):
-        """Animate the snapping motion with linear interpolation"""
-        dx = (to_x - from_x) / self._snap_animation_steps
-        dy = (to_y - from_y) / self._snap_animation_steps
-        
-        def step(count):
-            if count < self._snap_animation_steps:
-                x = int(from_x + dx * (count + 1))
-                y = int(from_y + dy * (count + 1))
-                # Ensure we don't go outside screen bounds even during animation
-                screen_w = self.root.winfo_screenwidth()
-                screen_h = self.root.winfo_screenheight()
-                x = max(-self._snap_margin, min(x, screen_w - self.width + self._snap_margin))
-                y = max(-self._snap_margin, min(y, screen_h - self.height + self._snap_margin))
-                self.root.geometry(f"+{x}+{y}")
-                self.root.after(self._snap_animation_delay, lambda: step(count + 1))
-            else:
-                self.root.geometry(f"+{to_x}+{to_y}")
-                
-        step(0)
-        
-    def _animate_snap_easeInOut(self, from_x, from_y, to_x, to_y):
-        """Animate the snapping motion with ease-in-out interpolation for smoother movement"""
-        def easeOutQuart(t):
-            """Ease-out quartic function - starts slow and accelerates"""
-            return 1 - pow(1 - t, 4)
-        
-        dx = to_x - from_x
-        dy = to_y - from_y
-        
-        def step(count):
-            if count < self._snap_animation_steps:
-                # Apply ease-out function to progress (accelerates as it approaches target)
-                progress = (count + 1) / self._snap_animation_steps
-                eased_progress = easeOutQuart(progress)
-                
-                x = int(from_x + dx * eased_progress)
-                y = int(from_y + dy * eased_progress)
-                
-                # Ensure we don't go outside screen bounds even during animation
-                screen_w = self.root.winfo_screenwidth()
-                screen_h = self.root.winfo_screenheight()
-                x = max(-self._snap_margin, min(x, screen_w - self.width + self._snap_margin))
-                y = max(-self._snap_margin, min(y, screen_h - self.height + self._snap_margin))
-                self.root.geometry(f"+{x}+{y}")
-                self.root.after(self._snap_animation_delay, lambda: step(count + 1))
-            else:
-                self.root.geometry(f"+{to_x}+{to_y}")
-                
-        step(0)
 
     def _refresh(self):
         for w in self.scroll_frame.winfo_children():
@@ -587,6 +536,24 @@ class TopWindowApp:
             # Window is hidden, so show it
             self.manager.show_app_window(self.root)
             self.hide_show_btn.config(text="−")  # Change to hide icon
+        
+    # ... (existing imports)
+    import win32api
+
+    # ... (inside TopWindowApp class)
+
+    def _get_current_monitor_work_area(self):
+        """Get the work area (displayed area excluding taskbar) of the monitor containing the window."""
+        try:
+            hwnd = self.root.winfo_id()
+            monitor = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
+            monitor_info = win32api.GetMonitorInfo(monitor)
+            monitor_area = monitor_info['Monitor']
+            work_area = monitor_info['Work']
+            return work_area
+        except:
+            # Fallback to primary screen
+            return (0, 0, self.root.winfo_screenwidth(), self.root.winfo_screenheight())
 
     def _check_edge_position(self):
         """Continuously check and snap to nearest edge"""
@@ -595,57 +562,97 @@ class TopWindowApp:
         self.root.after(100, self._check_edge_position)
         
     def _snap_to_nearest_edge(self):
-        """Snap to nearest left or right edge immediately, but only if not dragging"""
-        # Don't snap while dragging
-        if self._is_dragging:
+        """Snap to nearest left or right edge immediately, but only if not dragging or animating"""
+        # Don't snap while dragging or animating
+        if self._is_dragging or getattr(self, '_is_animating', False):
             return
             
         x = self.root.winfo_x()
         y = self.root.winfo_y()
         width = self.width
-        height = self.height
-        screen_w = self.root.winfo_screenwidth()
         
-        # Only calculate distances to left and right edges
-        left_dist = abs(x - self._snap_margin)
-        right_dist = abs(x + width - screen_w + self._snap_margin)
+        # Get current monitor work area
+        work_area = self._get_current_monitor_work_area()
+        monitor_left = work_area[0]
+        monitor_right = work_area[2]
+        
+        # Only calculate distances to left and right edges of the CURRENT monitor
+        left_dist = abs(x - (monitor_left + self._snap_margin))
+        right_dist = abs(x + width - (monitor_right - self._snap_margin))
         
         min_dist = min(left_dist, right_dist)
         
-        # Snap to nearest left or right edge (immediate snapping)
-        target_x, target_y = x, y
+        # Snap logic (immediate)
+        target_x = x
         if min_dist == left_dist:
-            target_x = self._snap_margin
+            target_x = monitor_left + self._snap_margin
         elif min_dist == right_dist:
-            target_x = screen_w - width - self._snap_margin
-        
-        # Snap immediately if not already at target position (horizontal only)
-        if target_x != x:
-            # For immediate snapping, use direct positioning instead of animation
-            self.root.geometry(f"+{target_x}+{target_y}")
+            target_x = monitor_right - width - self._snap_margin
             
+        # Only snap if we are close enough (threshold) but not exactly there
+        if min_dist < self._snap_threshold and target_x != x:
+            self.root.geometry(f"+{target_x}+{y}")
+            
+    def _animate_snap_easeInOut(self, from_x, from_y, to_x, to_y):
+        """Animate the snapping motion with ease-in-out interpolation for smoother movement"""
+        self._is_animating = True
+        
+        def easeOutCubic(t):
+            return 1 - pow(1 - t, 3)
+        
+        dx = to_x - from_x
+        dy = to_y - from_y
+        
+        # Increase steps for smoothness
+        steps = 40 
+        
+        def step(count):
+            if count < steps:
+                progress = (count + 1) / steps
+                eased_progress = easeOutCubic(progress)
+                
+                x = int(from_x + dx * eased_progress)
+                y = int(from_y + dy * eased_progress)
+                
+                # Get dynamic monitor bounds during animation
+                work_area = self._get_current_monitor_work_area()
+                m_left, m_top, m_right, m_bottom = work_area
+                
+                # Constrain to monitor bounds
+                x = max(m_left - self._snap_margin, min(x, m_right - self.width + self._snap_margin))
+                y = max(m_top - self._snap_margin, min(y, m_bottom - self.height + self._snap_margin))
+                
+                self.root.geometry(f"+{x}+{y}")
+                self.root.after(10, lambda: step(count + 1))
+            else:
+                self.root.geometry(f"+{to_x}+{to_y}")
+                self._is_animating = False
+                
+        step(0)
+
     def _snap_to_nearest_edge_animated(self):
         """Animated snapping to left or right edge after drag stop"""
         x = self.root.winfo_x()
         y = self.root.winfo_y()
         width = self.width
-        height = self.height
-        screen_w = self.root.winfo_screenwidth()
         
-        # Only calculate distances to left and right edges
-        left_dist = abs(x - self._snap_margin)
-        right_dist = abs(x + width - screen_w + self._snap_margin)
+        # Get current monitor work area
+        work_area = self._get_current_monitor_work_area()
+        monitor_left = work_area[0]
+        monitor_right = work_area[2]
+        
+        left_dist = abs(x - (monitor_left + self._snap_margin))
+        right_dist = abs(x + width - (monitor_right - self._snap_margin))
         
         min_dist = min(left_dist, right_dist)
         
-        # Snap to nearest left or right edge with animation
-        target_x, target_y = x, y
+        target_x = x
         if min_dist == left_dist:
-            target_x = self._snap_margin
+            target_x = monitor_left + self._snap_margin
         elif min_dist == right_dist:
-            target_x = screen_w - width - self._snap_margin
+            target_x = monitor_right - width - self._snap_margin
         
-        # Animate snapping if needed (horizontal only)
+        # Animate snapping if needed
         if target_x != x:
             self._animate_snap_easeInOut(x, y, target_x, y)
     
@@ -653,5 +660,15 @@ class TopWindowApp:
         self.root.mainloop()
 
 if __name__ == "__main__":
-    app = TopWindowApp()
-    app.run()
+    try:
+        app = TopWindowApp()
+        app.run()
+    except Exception as e:
+        import traceback
+        import datetime
+        error_log = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gui_error_log.txt")
+        with open(error_log, "a") as f:
+            f.write(f"\n\n--- Error at {datetime.datetime.now()} ---\n")
+            f.write(str(e))
+            f.write("\n")
+            traceback.print_exc(file=f)

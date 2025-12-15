@@ -100,7 +100,7 @@ class WindowManager:
                     img = self.hicon_to_image(hicon)
                     for h in large_icons: win32gui.DestroyIcon(h)
                     for h in small_icons: win32gui.DestroyIcon(h)
-        except Exception as e:
+        except Exception:
             pass
 
         # YÖNTEM 2: WM_GETICON / GetClassLong (Fallback & UWP)
@@ -108,11 +108,11 @@ class WindowManager:
             try:
                 hicon = 0
                 # 2.1 WM_GETICON (SendMessageTimeout güvenlidir)
+                # Timeout süresini 100ms'ye indirdik (daha hızlı yanıt için)
                 try:
-                    # SMTO_ABORTIFHUNG = 0x0002. 200ms timeout
-                    res, hicon = win32gui.SendMessageTimeout(hwnd, win32con.WM_GETICON, win32con.ICON_BIG, 0, 0x0002, 200)
+                    res, hicon = win32gui.SendMessageTimeout(hwnd, win32con.WM_GETICON, win32con.ICON_BIG, 0, 0x0002, 100)
                     if hicon == 0:
-                        res, hicon = win32gui.SendMessageTimeout(hwnd, win32con.WM_GETICON, win32con.ICON_SMALL, 0, 0x0002, 200)
+                        res, hicon = win32gui.SendMessageTimeout(hwnd, win32con.WM_GETICON, win32con.ICON_SMALL, 0, 0x0002, 100)
                 except: pass
 
                 # 2.2 GetClassLong (Mesaj döngüsü cevap vermezse)

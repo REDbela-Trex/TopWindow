@@ -182,35 +182,57 @@ def launch_gui_version():
     try:
         restore_all_windows()  # Clean up before switching to GUI
         
-        # Launch GUI as a detached process that survives terminal closure
         import subprocess
         import sys
         import os
+        import ctypes
         
-        # Check if we're running as a bundled executable
+        # Get console window handle
+        kernel32 = ctypes.WinDLL('kernel32')
+        user32 = ctypes.WinDLL('user32')
+        hwnd = kernel32.GetConsoleWindow()
+        
+        cmd = []
         if getattr(sys, 'frozen', False):
             # Running as compiled executable
-            # Launch the GUI by running the same executable with a --gui flag
-            subprocess.Popen(
-                [sys.executable, '--gui'],
-                creationflags=subprocess.DETACHED_PROCESS,
-                close_fds=True
-            )
+            cmd = [sys.executable, '--gui']
         else:
             # Running as script
-            # Get the path to the GUI script
             gui_script = os.path.join(os.path.dirname(__file__), 'gui', 'modern_ui.py')
-            # Launch the GUI script
-            subprocess.Popen(
-                [sys.executable, gui_script],
-                creationflags=subprocess.DETACHED_PROCESS,
-                close_fds=True
-            )
+            cmd = [sys.executable, gui_script]
+
+        # Launch GUI process (removed DETACHED_PROCESS to allow waiting)
+        # We pass the current environment to ensure it inherits necessary context
+        process = subprocess.Popen(cmd)
         
-        # Exit the current process (closes terminal)
-        sys.exit(0)
+        if hwnd:
+            # Hide the console window
+            # SW_HIDE = 0
+            user32.ShowWindow(hwnd, 0)
+            
+        # Wait for the GUI process to finish
+        exit_code = process.wait()
+        
+        # If exit code indicates error, show console again
+        if exit_code != 0 and hwnd:
+            # SW_SHOW = 5
+            user32.ShowWindow(hwnd, 5)
+            print(f"\n{Colors.FAIL}GUI Process exited with error code: {exit_code}{Colors.ENDC}")
+            print(f"{Colors.WARNING}Check 'gui_error_log.txt' in the 'gui' folder for details.{Colors.ENDC}")
+            input("Press Enter to exit...")
+            
+        sys.exit(exit_code)
+        
     except Exception as e:
         print(f"{Colors.FAIL}Error launching GUI version: {e}{Colors.ENDC}")
+        # Ensure console is visible if we crashed here
+        try:
+            kernel32 = ctypes.WinDLL('kernel32')
+            user32 = ctypes.WinDLL('user32')
+            hwnd = kernel32.GetConsoleWindow()
+            if hwnd: user32.ShowWindow(hwnd, 5)
+        except: pass
+        input("Press Enter to exit...")
 
 def restore_all_windows():
     """Restore all windows when exiting"""
@@ -285,11 +307,24 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == '--gui':
         # Launch GUI directly
         try:
+            # Setup logging for startup
+            import datetime
+            log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gui_startup_log.txt")
+            
+            with open(log_path, "w") as f:
+                f.write(f"Startup initiated at {datetime.datetime.now()}\n")
+            
             from gui import modern_ui
             app = modern_ui.TopWindowApp()
             app.run()
         except Exception as e:
+            import traceback
+            log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gui_startup_log.txt")
+            with open(log_path, "a") as f:
+                f.write(f"Error launching GUI: {e}\n")
+                traceback.print_exc(file=f)
             print(f"Error launching GUI: {e}")
+            sys.exit(1)
     else:
         # Launch CLI version
         main()
