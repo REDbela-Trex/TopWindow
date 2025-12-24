@@ -1,4 +1,3 @@
-https://realistically-nondeclaratory-bill.ngrok-free.dev/#
 # TopWindow
 
 TopWindow is a lightweight Python utility that allows users to keep any application window on top of other windows. This tool is particularly useful when you need to reference information from one application while working in another, ensuring important windows remain visible at all times.
